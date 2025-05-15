@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+
+    <title>BigQuery Flavor of SQL</title>
+
+    <link rel="stylesheet" href="dist/reset.css" />
+    <link rel="stylesheet" href="dist/reveal.css" />
+    <link rel="stylesheet" href="dist/theme/kpdatadev.css" />
+
+    <!-- Theme used for syntax highlighted code -->
+    <link rel="stylesheet" href="plugin/highlight/default.css" />
+
+    <link rel="icon" type="image/svg+xml" href="images/Favicon.svg" />
+  </head>
+  <body>
+    <div class="reveal">
+      <div class="slides">
+        <section>
+          <section>
+            <h1>BigQuery <br>Flavor of SQL</h1>
+          </section>
+          <section>
+            <h2>The SQL Multiverse</h2>
+            <ul>
+              <li>ANSI SQL</li>
+              <li>T-SQL</li>
+              <li>PL/SQL</li>
+              <li>SparkSQL</li>
+              <li>...</li>
+              <li class="fragment">GoogleSQL (in BigQuery)</li>
+            </ul>
+          </section>
+        </section>
+
+        <section>
+          <section>
+            <h2>Ch. 1 The OneBigTable</h2>
+          </section>
+          <section data-auto-animate>
+            <h3>Option 1: List the columns you want</h3>
+            <pre data-id="code-animation"><code data-trim data-noescape data-line-numbers="|52||50-51|" class="language-sql">
+SELECT 
+    StudentID,
+    FirstName,
+    LastName,
+    House,
+    `Year`,
+    DefenseAgainstTheDarkArts_Grade,
+    Transfiguration_Grade,
+    Charms_Grade,
+    Potions_Grade,
+    Herbology_Grade,
+    Astronomy_Grade,
+    HistoryOfMagic_Grade,
+    CareOfMagicalCreatures_Grade,
+    Divination_Grade,
+    AncientRunes_Grade,
+    Arithmancy_Grade,
+    MuggleStudies_Grade,
+    Flying_Grade,
+    QuidditchParticipation,
+    OWLs_DefenseAgainstTheDarkArts,
+    OWLs_Transfiguration,
+    OWLs_Charms,
+    OWLs_Potions,
+    OWLs_Herbology,
+    OWLs_Astronomy,
+    OWLs_HistoryOfMagic,
+    OWLs_CareOfMagicalCreatures,
+    OWLs_Divination,
+    OWLs_AncientRunes,
+    OWLs_Arithmancy,
+    OWLs_MuggleStudies,
+    NEWTs_DefenseAgainstTheDarkArts,
+    NEWTs_Transfiguration,
+    NEWTs_Charms,
+    NEWTs_Potions,
+    NEWTs_Herbology,
+    NEWTs_Astronomy,
+    NEWTs_HistoryOfMagic,
+    NEWTs_CareOfMagicalCreatures,
+    NEWTs_Divination,
+    NEWTs_AncientRunes,
+    NEWTs_Arithmancy,
+    NEWTs_MuggleStudies,
+    Attendance,
+    Behavior,
+    ExtraCredit,
+    HousePoints,
+    Detentions--,
+    -- QuidditchTeam,
+    -- Patronus
+FROM HOGWARTS.GRADEBOOK;
+            </code></pre>
+          </section>
+
+          <section data-auto-animate>
+            <h3>Option 2: <br>List the columns you DON'T want</h3>
+            <pre data-id="code-animation"><code data-trim data-noescape data-line-numbers="|1|2-3|" class="language-sql">
+SELECT * EXCEPT(
+    QuidditchTeam,
+    Patronus
+)
+FROM HOGWARTS.GRADEBOOK;
+            </code></pre>
+          </section>
+
+          <section>
+            <h3>Warnings</h3>
+            <ul>
+              <li class="fragment"><code>SELECT * EXCEPT</code> introduces schema change vulnerability</li>
+              <li class="fragment"><code>SELECT *</code> can be expensive. Don't do it.</li>
+            </ul>
+          </section>
+        </section>
+
+        <section>
+          <section>
+            <h2>Ch.2 The Thorn in the Flesh</h2>
+            <h3 class="fragment">Duplicate Records &#128557;</h3>
+          </section>
+          <section>
+            <h3>Common Deduplication Tactic</h3>
+            <ol>
+              <li class="fragment">Group records together by some common trait</li>
+              <li class="fragment">Sort and rank the records within each group</li>
+              <li class="fragment">Take the top record from each group</li>
+            </ol>
+          </section>
+          <section data-auto-animate>
+            <h3>Option 1: Traditional window function</h3>
+            <pre data-id="code-animation"><code data-trim data-noescape data-line-numbers="|7-16|12-15|1-6|18|" class="language-sql">
+SELECT 
+    FirstName,
+    LastName,
+    `Year`,
+    Potions_Grade,
+FROM (
+    SELECT 
+        FirstName,
+        LastName,
+        `Year`,
+        Potions_Grade,
+        RANK() OVER (
+            PARTITION BY `Year` 
+            ORDER BY Potions_Grade DESC
+        ) standing
+    FROM HOGWARTS.GRADEBOOK
+) a
+WHERE a.standing = 1;
+            </code></pre>
+          </section>
+
+          <section data-auto-animate>
+            <h3>Option 2: Filter with QUALIFY</h3>
+            <pre data-id="code-animation"><code data-trim data-noescape data-line-numbers="|6-9|11|" class="language-sql">
+SELECT 
+    FirstName,
+    LastName,
+    `Year`,
+    Potions_Grade,
+    RANK() OVER (
+        PARTITION BY `Year` 
+        ORDER BY Potions_Grade DESC
+    ) standing
+FROM HOGWARTS.GRADEBOOK
+QUALIFY standing = 1;
+            </code></pre>
+          </section>
+
+          <section data-auto-animate>
+            <h3>Option 2b: Window function in QUALIFY</h3>
+            <pre data-id="code-animation"><code data-trim data-noescape data-line-numbers="|7-10|" class="language-sql">
+SELECT 
+    FirstName,
+    LastName,
+    `Year`,
+    Potions_Grade
+FROM HOGWARTS.GRADEBOOK
+QUALIFY RANK() OVER (
+    PARTITION BY `Year` 
+    ORDER BY Potions_Grade DESC
+) = 1;
+            </code></pre>
+          </section>
+        </section>
+
+
+        <section>
+          <section>
+            <h2>Ch.3 It's Your Birthday &#127873;</h2>
+            <h3 class="fragment">Opening a New Table</h3>
+          </section>
+
+          <section>
+            <h3 class="fragment strike">Grab a few rows with <code>SELECT *</code></h3>
+            <ul>
+              <li class="fragment">WAIT!! BigQuery charges by data scanned</li>
+              <li class="fragment">Adding <code>LIMIT 10</code> doesn't reduce data scanned</li>
+              <li class="fragment">Charged for scanning whole table</li>
+            </ul>
+          </section>
+
+          <section>
+            <h3>Enter TABLESAMPLE</h3>
+            <pre data-id="code-animation"><code data-trim data-noescape data-line-numbers="|4|" class="language-sql">
+-- get random sample of 5% of gradebook
+SELECT * 
+FROM HOGWARTS.GRADEBOOK 
+TABLESAMPLE SYSTEM (5 PERCENT);
+            </code></pre>
+          </section>
+        </section>
+
+        <section>
+          <section>
+            <h2>Ch.4 Inception</h2>
+            <h3 class="fragment">Rows within a Row</h3>
+          </section>
+
+          <section>
+            <h3>Then and Now</h3>
+            <ul>
+              <li>
+                <strong>Back then</strong>: Tables have rows and columns.
+                <ul>
+                  <li>"Cells" have single value.</li>
+                </ul></li>
+              <li class="fragment"><strong>These days</strong>: Single "cell" can have multiple values</li>
+            </ul>
+          </section>
+        </section>
+
+        <section>
+          <section>
+            <h2>Some unique GoogleSQL traits</h2>
+            <ul class="fragment">
+              <li>SELECT * EXCEPT</li>
+              <li>QUALIFY</li>
+              <li>TABLESAMPLE</li>
+              <li>ARRAY types</li>
+            </ul>
+          </section>
+        </section>
+
+        <section data-background-color="#293c47" style="text-align: left">
+          <div style="margin-bottom: 1em">
+            <p>
+              Ask me questions about:<br />Data engineering,
+              <strong>learning Python</strong>, anything else
+            </p>
+          </div>
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            "
+          >
+            <p>
+              <strong>Kishan Patel</strong><br />
+              <small
+                >Data Engineering Trainer<br />
+                <strong>info@kpdata.dev</strong></small
+              >
+            </p>
+            <img
+              src="images/LightLogo.svg"
+              alt="KP Data Dev logo"
+              style="height: 100px"
+            />
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script src="dist/reveal.js"></script>
+    <script src="plugin/notes/notes.js"></script>
+    <script src="plugin/markdown/markdown.js"></script>
+    <script src="plugin/highlight/highlight.js"></script>
+    <script>
+      // More info about initialization & config:
+      // - https://revealjs.com/initialization/
+      // - https://revealjs.com/config/
+      Reveal.initialize({
+        hash: true,
+        progress: false,
+
+        // Learn about plugins: https://revealjs.com/plugins/
+        plugins: [RevealMarkdown, RevealHighlight, RevealNotes],
+      });
+    </script>
+  </body>
+</html>
