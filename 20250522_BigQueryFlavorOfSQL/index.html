@@ -221,7 +221,7 @@ TABLESAMPLE SYSTEM (5 PERCENT);
         <section>
           <section>
             <h2>Ch.4 Inception</h2>
-            <h3 class="fragment">Rows within a Row</h3>
+            <h3 class="fragment">Rows within a Row &#128064;</h3>
           </section>
 
           <section>
@@ -235,6 +235,71 @@ TABLESAMPLE SYSTEM (5 PERCENT);
               <li class="fragment"><strong>These days</strong>: Single "cell" can have multiple values</li>
             </ul>
           </section>
+
+          <section>
+              <pre><code data-trim data-noescape data-line-numbers="|4" class="language-sql">
+SELECT 
+    FirstName,
+    LastName,
+    HousePoints  --  Here's the ARRAY column
+FROM HOGWARTS.GRADEBOOK;
+              </code></pre>
+          </section>
+
+          <section data-markdown>
+            <textarea data-template>
+  | FirstName | LastName |                 HousePoints |
+  | --------- | -------- | --------------------------: |
+  | Harry     | Potter   |              [10, -150, 50] |
+  | Draco     | Malfoy   |           [10, 30, 15, -50] |
+  | Hermione  | Granger  | [10, 25, 10, 5, 15, 10, 30] |
+  | Ron       | Weasley  |                  [10, -150] |
+            </textarea>
+          </section>
+
+          <section>
+            <h3>WHYYYYY? &#128551;</h3>
+
+            <ul>
+              <li class="fragment">Traditionally, HousePoints should be normalized in a separate table.</li>
+              <li class="fragment">The ARRAY data type opens the door to modern data warehousing techniques.</li>
+              <ul>
+                <li class="fragment">Reduces number of joins or table lookups.</li>
+                <li class="fragment">Improves read performance (especially for large tables)</li>
+              </ul>
+            </ul>
+          </section>
+          
+          <section>
+            <h3>Working with ARRAY Types</h3>
+              <pre><code data-trim data-noescape data-line-numbers="|5-10|" class="language-sql">
+-- total house points earned or lost by student
+SELECT
+    FirstName,
+    LastName,
+    (
+        SELECT
+            SUM(p)
+        FROM
+            UNNEST (g.HousePoints) AS p
+    ) AS HousePoints_Total
+FROM
+    HOGWARTS.GRADEBOOK AS g;
+              </code></pre>
+
+          </section>
+
+          <section data-markdown>
+            <textarea data-template>
+| FirstName | LastName | HousePoints_Total |
+| --------- | -------- | ----------------: |
+| Harry     | Potter   |               -90 |
+| Draco     | Malfoy   |                 5 |
+| Hermione  | Granger  |               105 |
+| Ron       | Weasley  |              -140 |
+            </textarea>
+          </section>
+
         </section>
 
         <section>
@@ -249,12 +314,14 @@ TABLESAMPLE SYSTEM (5 PERCENT);
           </section>
         </section>
 
-        <section data-background-color="#293c47" style="text-align: left">
-          <div style="margin-bottom: 1em">
-            <p>
-              Ask me questions about:<br />Data engineering,
-              <strong>learning Python</strong>, anything else
-            </p>
+        <section data-background-color="#293c47">
+          <div>
+            <h3>Ask me questions</h3>
+            <img
+              src="images/LinkedInQR.png"
+              alt="QR code to LinkedIn profile"
+              style="height: 250px"
+            />
           </div>
           <div
             style="
@@ -263,7 +330,7 @@ TABLESAMPLE SYSTEM (5 PERCENT);
               align-items: center;
             "
           >
-            <p>
+            <p style="text-align: left">
               <strong>Kishan Patel</strong><br />
               <small
                 >Data Engineering Trainer<br />
